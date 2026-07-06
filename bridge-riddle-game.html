@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Bridge Riddle</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --night-deep: #1a1035;
+    --night-mid: #2d1f57;
+    --night-soft: #3d2d6b;
+    --moon: #e8e4f5;
+    --gold: #e8b64a;
+    --gold-bright: #ffd479;
+    --torch: #ff8c3b;
+    --safe: #4fd1a5;
+    --danger: #ff5c72;
+    --parchment: #f0e6cf;
+    --ink: #3a2f1a;
+    --stone-face: #8a7cb8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: var(--night-deep);
+    color: var(--moon);
+    user-select: none;
+  }
+
+  #app {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background:
+      radial-gradient(ellipse 120% 60% at 80% -10%, rgba(232,182,74,0.12), transparent 60%),
+      radial-gradient(ellipse 100% 80% at 20% 110%, rgba(79,209,165,0.06), transparent 55%),
+      linear-gradient(180deg, var(--night-deep) 0%, var(--night-mid) 55%, var(--night-soft) 100%);
+    position: relative;
+  }
+
+  /* stars */
+  .stars { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .star {
+    position: absolute; width: 2px; height: 2px; background: #fff; border-radius: 50%;
+    opacity: 0.6; animation: twinkle 3s infinite ease-in-out;
+  }
+  @keyframes twinkle { 0%,100%{opacity:.2} 50%{opacity:.9} }
+
+  /* ---------- Header ---------- */
+  header {
+    flex: 0 0 auto;
+    padding: 14px 20px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    z-index: 5;
+  }
+  .title-block h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(20px, 3.2vw, 30px);
+    font-weight: 800;
+    letter-spacing: 1px;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold) 70%, #b8862f);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    line-height: 1;
+  }
+  .title-block p { font-size: 12px; color: rgba(232,228,245,0.6); margin-top: 3px; font-weight: 600; }
+
+  .stat-group { display: flex; gap: 10px; align-items: stretch; }
+
+  .timer-box, .attempt-box {
+    text-align: center;
+    background: rgba(0,0,0,0.28);
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+    padding: 8px 18px;
+    min-width: 110px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 0 20px rgba(232,182,74,0.08);
+  }
+  .attempt-box { border-color: var(--torch); min-width: 92px; }
+  .timer-box .label, .attempt-box .label { font-size: 10px; letter-spacing: 2px; font-weight: 800; text-transform: uppercase; }
+  .timer-box .label { color: var(--gold); }
+  .attempt-box .label { color: var(--torch); }
+  .timer-box .val, .attempt-box .val {
+    font-family: 'Cinzel', serif; font-size: 30px; font-weight: 800; line-height: 1.1;
+    color: var(--moon);
+  }
+  .timer-box .val.warn { color: var(--gold-bright); }
+  .timer-box .val.over { color: var(--danger); }
+  .timer-box .sub, .attempt-box .sub { font-size: 10px; color: rgba(232,228,245,0.5); font-weight: 700; }
+
+  /* ---------- Danger bar (monster chase) ---------- */
+  .chasebar-wrap {
+    flex: 0 0 auto;
+    padding: 4px 20px 10px;
+    z-index: 5;
+  }
+  .chasebar {
+    position: relative;
+    height: 26px;
+    border-radius: 14px;
+    background: linear-gradient(90deg, rgba(255,92,114,0.18), rgba(79,209,165,0.18));
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.35);
+    overflow: visible;
+  }
+  /* filled portion = time already used, shrinking gap toward the party */
+  .chasebar .track-labels {
+    position: absolute; inset: 0; display: flex; justify-content: space-between;
+    align-items: center; padding: 0 12px; font-size: 10px; font-weight: 800;
+    letter-spacing: 1px; text-transform: uppercase; pointer-events: none;
+  }
+  .chasebar .track-labels .l { color: var(--danger); }
+  .chasebar .track-labels .r { color: var(--safe); }
+  .chasebar .safezone {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 100%;
+    border-radius: 14px;
+    background: linear-gradient(90deg, transparent, rgba(79,209,165,0.28));
+    transform-origin: right center;
+    transition: width .8s cubic-bezier(.4,0,.2,1);
+  }
+  .chase-monster {
+    position: absolute; top: 50%; font-size: 24px; line-height: 1;
+    transform: translate(-50%, -50%);
+    left: 0%;
+    transition: left .8s cubic-bezier(.4,0,.2,1);
+    filter: drop-shadow(0 2px 5px rgba(255,60,60,0.5));
+    z-index: 2;
+  }
+  .chase-monster.close { animation: chaseThrob .6s infinite; }
+  @keyframes chaseThrob { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.25)} }
+  .chase-party {
+    position: absolute; top: 50%; right: 8px; font-size: 20px; line-height:1;
+    transform: translateY(-50%); z-index: 2;
+  }
+
+  /* ---------- Stage ---------- */
+  .stage {
+    flex: 1 1 auto;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    min-height: 0;
+  }
+
+  .cliff {
+    position: absolute; bottom: 0;
+    width: 26%;
+    height: 46%;
+    background: linear-gradient(180deg, #4a3d6e 0%, #2a2148 100%);
+    z-index: 3;
+  }
+  .cliff.left { left: 0; border-radius: 0 40px 0 0; box-shadow: inset -8px 0 20px rgba(0,0,0,0.3); }
+  .cliff.right { right: 0; border-radius: 40px 0 0 0; box-shadow: inset 8px 0 20px rgba(0,0,0,0.3); }
+  .cliff .grass { position:absolute; top:-6px; left:0; right:0; height:14px; background:linear-gradient(180deg,#5a7d4a,#3d5a32); border-radius:50% 50% 0 0/100% 100% 0 0;}
+  .side-label {
+    position: absolute; top: 12px; font-size: 11px; font-weight: 800; letter-spacing: 1px;
+    color: rgba(255,255,255,0.55); text-transform: uppercase; z-index: 4;
+  }
+  .cliff.left .side-label { left: 16px; }
+  .cliff.right .side-label { right: 16px; }
+
+  /* bridge */
+  .bridge {
+    position: absolute;
+    bottom: 30%;
+    left: 24%;
+    width: 52%;
+    height: 60px;
+    z-index: 2;
+  }
+  .bridge svg { width: 100%; height: 100%; overflow: visible; }
+  .bridge.cut { animation: bridgeFall 1.1s forwards ease-in; }
+  @keyframes bridgeFall {
+    0% { transform: rotate(0); opacity:1; }
+    100% { transform: translateY(180px) rotate(-14deg); opacity: 0; }
+  }
+
+  /* monster */
+  .monster {
+    position: absolute;
+    left: 3%; top: 8%;
+    font-size: clamp(38px, 6vw, 60px);
+    z-index: 4;
+    filter: drop-shadow(0 4px 12px rgba(255,60,60,0.35));
+    transition: transform .5s;
+  }
+  .monster.roar { animation: roar .5s ease-in-out; }
+  @keyframes roar { 0%,100%{transform:scale(1)} 50%{transform:scale(1.25) rotate(-4deg)} }
+
+  .moon {
+    position:absolute; right:6%; top:6%; width: clamp(40px,7vw,70px); height: clamp(40px,7vw,70px);
+    border-radius:50%; background: radial-gradient(circle at 35% 35%, #fff, var(--moon) 60%, #b8b2d0);
+    box-shadow: 0 0 40px rgba(232,228,245,0.4); z-index:1;
+  }
+
+  /* character tokens */
+  .char {
+    position: absolute;
+    width: clamp(58px, 8vw, 78px);
+    display: flex; flex-direction: column; align-items: center;
+    cursor: pointer;
+    z-index: 6;
+    transition: left .8s cubic-bezier(.4,0,.2,1), bottom .8s cubic-bezier(.4,0,.2,1), transform .2s;
+  }
+  .char:active { transform: scale(0.94); }
+  .char.selected .avatar { box-shadow: 0 0 0 4px var(--gold-bright), 0 0 22px var(--gold-bright); transform: translateY(-6px); }
+  .char.crossing { z-index: 8; }
+  .char.disabled { opacity: 0.45; pointer-events: none; filter: grayscale(0.4); }
+
+  .avatar {
+    width: clamp(48px, 6.5vw, 62px);
+    height: clamp(48px, 6.5vw, 62px);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: clamp(24px, 3.4vw, 32px);
+    background: rgba(255,255,255,0.1);
+    border: 3px solid rgba(255,255,255,0.35);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    transition: box-shadow .2s, transform .2s;
+    backdrop-filter: blur(2px);
+  }
+  .char[data-id="you"] .avatar { background: linear-gradient(160deg,#5b8dd9,#2f5aa8); }
+  .char[data-id="archer"] .avatar { background: linear-gradient(160deg,#5fbf6a,#2f8a3f); }
+  .char[data-id="knight"] .avatar { background: linear-gradient(160deg,#9aa4b0,#5a636e); }
+  .char[data-id="wizard"] .avatar { background: linear-gradient(160deg,#a77fd6,#6a3fb0); }
+
+  .char .name { font-size: 11px; font-weight: 800; margin-top: 4px; text-shadow: 0 1px 3px #000; }
+  .char .speed {
+    font-size: 10px; font-weight: 800; color: var(--night-deep);
+    background: var(--gold-bright); border-radius: 10px; padding: 1px 8px; margin-top: 2px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  }
+  .lantern-glow { position:absolute; inset:-14px; border-radius:50%; background: radial-gradient(circle, rgba(255,200,90,0.55), transparent 70%); animation: flicker 1.6s infinite; }
+  @keyframes flicker { 0%,100%{opacity:.75; transform:scale(1)} 50%{opacity:1; transform:scale(1.08)} }
+
+  /* control bar */
+  .controls {
+    flex: 0 0 auto;
+    padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(0,0,0,0.25);
+    border-top: 1px solid rgba(232,182,74,0.2);
+    z-index: 5;
+    min-height: 74px;
+  }
+  .hint {
+    flex: 1; font-size: 13px; font-weight: 700; color: rgba(232,228,245,0.85); line-height: 1.35;
+  }
+  .hint b { color: var(--gold-bright); }
+  .btn {
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px;
+    border: none; border-radius: 14px; padding: 13px 22px; cursor: pointer;
+    transition: transform .12s, filter .15s; white-space: nowrap;
+  }
+  .btn:active { transform: scale(0.95); }
+  .btn.go {
+    background: linear-gradient(160deg, var(--safe), #2fae87); color: #06302380;
+    color: #063023; box-shadow: 0 4px 14px rgba(79,209,165,0.35);
+  }
+  .btn.go:disabled { opacity: 0.4; filter: grayscale(0.6); cursor: default; }
+  .btn.reset {
+    background: rgba(255,255,255,0.12); color: var(--moon); border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  /* moves log */
+  .log-chip {
+    position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.4); border: 1px solid var(--gold); border-radius: 20px;
+    padding: 6px 16px; font-size: 12px; font-weight: 700; z-index: 7;
+    opacity: 0; transition: opacity .3s; pointer-events: none; text-align:center;
+  }
+  .log-chip.show { opacity: 1; }
+
+  /* caught flash — full screen monster takeover */
+  .caught-flash {
+    position: absolute; inset: 0; z-index: 30;
+    display: none; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 45%, #7a0f1c, #2a0308 75%);
+    flex-direction: column;
+  }
+  .caught-flash.show { display: flex; animation: caughtIn .5s ease-out; }
+  @keyframes caughtIn { 0%{opacity:0; transform:scale(1.3)} 100%{opacity:1; transform:scale(1)} }
+  .caught-flash .big-monster {
+    font-size: clamp(90px, 22vw, 190px);
+    filter: drop-shadow(0 0 30px rgba(255,50,50,0.7));
+    animation: lunge .7s infinite alternate ease-in-out;
+  }
+  @keyframes lunge { 0%{transform:scale(1) rotate(-3deg)} 100%{transform:scale(1.12) rotate(3deg)} }
+  .caught-flash .caught-eyes { position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(circle at 42% 40%, rgba(255,0,0,0.15) 0 6px, transparent 8px),
+                radial-gradient(circle at 58% 40%, rgba(255,0,0,0.15) 0 6px, transparent 8px);
+  }
+
+  /* overlay */
+  .overlay {
+    position: absolute; inset: 0; z-index: 20;
+    display: none; align-items: center; justify-content: center; padding: 24px;
+    background: rgba(10,6,25,0.82); backdrop-filter: blur(4px);
+  }
+  .overlay.show { display: flex; }
+  .card {
+    background: var(--parchment); color: var(--ink);
+    border-radius: 22px; padding: 28px 26px; max-width: 460px; width: 100%;
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 3px solid #d8c8a0;
+    animation: pop .4s cubic-bezier(.2,1.3,.5,1);
+  }
+  @keyframes pop { 0%{transform:scale(.8); opacity:0} 100%{transform:scale(1); opacity:1} }
+  .card .emoji { font-size: 54px; margin-bottom: 8px; }
+  .card h2 { font-family: 'Cinzel', serif; font-size: 26px; margin-bottom: 10px; }
+  .card.win h2 { color: #2f8a3f; }
+  .card.lose h2 { color: #c23a4a; }
+  .card p { font-size: 15px; font-weight: 600; line-height: 1.5; margin-bottom: 18px; }
+  .card .steps { text-align: left; background: rgba(0,0,0,0.05); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; font-size: 13px; font-weight: 700; }
+  .card .steps div { padding: 3px 0; }
+  .card .attempt-badge {
+    display: inline-block; background: linear-gradient(160deg, var(--torch), #e0642a);
+    color: #fff; font-weight: 800; font-size: 15px; padding: 6px 18px; border-radius: 20px;
+    margin-bottom: 14px; box-shadow: 0 3px 10px rgba(224,100,42,0.35);
+  }
+
+  @media (max-width: 560px) {
+    .hint { font-size: 12px; }
+    .btn { padding: 11px 16px; font-size: 14px; }
+    header { padding: 10px 14px 6px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="stars" id="stars"></div>
+  <div class="moon"></div>
+
+  <header>
+    <div class="title-block">
+      <h1>THE BRIDGE RIDDLE</h1>
+      <p>Get everyone across before the monster catches you</p>
+    </div>
+    <div class="stat-group">
+      <div class="attempt-box">
+        <div class="label">Attempt</div>
+        <div class="val" id="attemptVal">1</div>
+        <div class="sub">tries used</div>
+      </div>
+      <div class="timer-box">
+        <div class="label">Time Used</div>
+        <div class="val" id="timeVal">0</div>
+        <div class="sub">of 17 minutes</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="chasebar-wrap">
+    <div class="chasebar">
+      <div class="safezone" id="safezone"></div>
+      <div class="track-labels"><span class="l">Monster</span><span class="r">You</span></div>
+      <div class="chase-monster" id="chaseMonster">🐉</div>
+      <div class="chase-party">🧙🛡️🏹🗡️</div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="monster" id="monster">🐉</div>
+
+    <div class="cliff left">
+      <div class="grass"></div>
+      <div class="side-label">Start</div>
+    </div>
+    <div class="cliff right">
+      <div class="grass"></div>
+      <div class="side-label">Safe</div>
+    </div>
+
+    <div class="bridge" id="bridge">
+      <svg viewBox="0 0 400 60" preserveAspectRatio="none">
+        <path d="M0,10 Q200,40 400,10" stroke="#6b5334" stroke-width="4" fill="none"/>
+        <path d="M0,50 Q200,80 400,50" stroke="#6b5334" stroke-width="4" fill="none"/>
+        <g stroke="#8a6b42" stroke-width="3">
+          <line x1="30" y1="16" x2="30" y2="53"/><line x1="70" y1="21" x2="70" y2="59"/>
+          <line x1="110" y1="25" x2="110" y2="63"/><line x1="150" y1="28" x2="150" y2="66"/>
+          <line x1="200" y1="30" x2="200" y2="68"/><line x1="250" y1="28" x2="250" y2="66"/>
+          <line x1="290" y1="25" x2="290" y2="63"/><line x1="330" y1="21" x2="330" y2="59"/>
+          <line x1="370" y1="16" x2="370" y2="53"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="log-chip" id="logChip"></div>
+  </div>
+
+  <div class="controls">
+    <div class="hint" id="hint">Pick <b>1 or 2</b> people who are together with the lantern, then press Cross.</div>
+    <button class="btn reset" id="resetBtn">Reset</button>
+    <button class="btn go" id="goBtn" disabled>Cross →</button>
+  </div>
+
+  <div class="caught-flash" id="caughtFlash">
+    <div class="big-monster">🐉</div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="card" id="card"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const LIMIT = 17;
+  const chars = [
+    { id:'you',    name:'You',    emoji:'🗡️', time:1 },
+    { id:'archer', name:'Archer', emoji:'🏹', time:2 },
+    { id:'knight', name:'Knight', emoji:'🛡️', time:5 },
+    { id:'wizard', name:'Wizard', emoji:'🧙', time:10 },
+  ];
+
+  const stage = document.getElementById('stage');
+  const goBtn = document.getElementById('goBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const timeVal = document.getElementById('timeVal');
+  const hint = document.getElementById('hint');
+  const logChip = document.getElementById('logChip');
+  const monster = document.getElementById('monster');
+  const bridge = document.getElementById('bridge');
+  const overlay = document.getElementById('overlay');
+  const card = document.getElementById('card');
+  const safezone = document.getElementById('safezone');
+  const chaseMonster = document.getElementById('chaseMonster');
+  const caughtFlash = document.getElementById('caughtFlash');
+  const attemptVal = document.getElementById('attemptVal');
+
+  let state, els = {}, animating = false;
+  let attempts = 1;              // persists across Try Again; resets only on page reload
+  attemptVal.textContent = attempts;
+
+  // stars
+  const starsWrap = document.getElementById('stars');
+  for (let i=0;i<40;i++){
+    const s=document.createElement('div'); s.className='star';
+    s.style.left=Math.random()*100+'%'; s.style.top=Math.random()*55+'%';
+    s.style.animationDelay=(Math.random()*3)+'s';
+    starsWrap.appendChild(s);
+  }
+
+  // positions (percent) for up to 4 tokens on each side, stacked
+  function posFor(side, index){
+    const startX = [4, 12, 3, 11];      // left cliff slots
+    const startY = [4, 30, 55, 4];
+    const safeX  = [78, 86, 77, 85];    // right cliff slots
+    const bottomStart = [8, 26, 8, 44];
+    const leftStart   = [4, 12, 20, 3];
+    const bottomSafe = [8, 26, 8, 44];
+    const leftSafe   = [78, 86, 70, 85];
+    if (side === 'left')  return { left: leftStart[index]+'%',  bottom: bottomStart[index]+'%' };
+    else                  return { left: leftSafe[index]+'%',   bottom: bottomSafe[index]+'%' };
+  }
+
+  function init(){
+    state = {
+      lantern: 'left',
+      total: 0,
+      side: {}, // id -> 'left'|'right'
+      selected: new Set(),
+      done: false
+    };
+    chars.forEach(c => state.side[c.id] = 'left');
+    stage.querySelectorAll('.char').forEach(e=>e.remove());
+    els = {};
+    bridge.classList.remove('cut');
+    overlay.classList.remove('show');
+    caughtFlash.classList.remove('show');
+    chaseMonster.classList.remove('close');
+    chaseMonster.style.left = '0%';
+    safezone.style.width = '100%';
+
+    chars.forEach((c,i)=>{
+      const el = document.createElement('div');
+      el.className = 'char';
+      el.dataset.id = c.id;
+      el.innerHTML = `
+        <div class="avatar"><div class="lantern-glow" style="display:none"></div>${c.emoji}</div>
+        <div class="name">${c.name}</div>
+        <div class="speed">${c.time} min</div>`;
+      el.addEventListener('click', ()=> toggle(c.id));
+      stage.appendChild(el);
+      els[c.id] = el;
+    });
+    layout();
+    updateTime();
+    updateGo();
+    hint.innerHTML = 'Pick <b>1 or 2</b> people on the <b>lantern side</b>, then press Cross.';
+  }
+
+  function layout(){
+    const bySide = { left:[], right:[] };
+    chars.forEach(c => bySide[state.side[c.id]].push(c.id));
+    Object.keys(bySide).forEach(side=>{
+      bySide[side].forEach((id, idx)=>{
+        const p = posFor(side, idx);
+        const el = els[id];
+        el.style.left = p.left; el.style.bottom = p.bottom;
+        el.querySelector('.lantern-glow').style.display =
+          (state.side[id] === state.lantern) ? 'block' : 'none';
+        // disable characters not on lantern side
+        if (state.side[id] !== state.lantern) el.classList.add('disabled');
+        else el.classList.remove('disabled');
+        el.classList.toggle('selected', state.selected.has(id));
+      });
+    });
+  }
+
+  function toggle(id){
+    if (animating || state.done) return;
+    if (state.side[id] !== state.lantern) {
+      flashChip('That person is on the other side — no light there!');
+      return;
+    }
+    if (state.selected.has(id)) state.selected.delete(id);
+    else {
+      if (state.selected.size >= 2){ flashChip('Only 2 can cross at a time!'); return; }
+      state.selected.add(id);
+    }
+    layout();
+    updateGo();
+  }
+
+  function updateGo(){
+    goBtn.disabled = state.selected.size < 1;
+  }
+
+  function flashChip(msg){
+    logChip.textContent = msg;
+    logChip.classList.add('show');
+    clearTimeout(flashChip._t);
+    flashChip._t = setTimeout(()=> logChip.classList.remove('show'), 1600);
+  }
+
+  function updateTime(){
+    timeVal.textContent = state.total;
+    timeVal.className = 'val' + (state.total > LIMIT ? ' over' : state.total >= 13 ? ' warn' : '');
+
+    // chase bar: monster travels from 0% to ~92% as time fills toward 17
+    const frac = Math.min(state.total / LIMIT, 1);
+    const monPos = frac * 90;            // leaves room for the party at the right
+    chaseMonster.style.left = monPos + '%';
+    // safe (green) portion shrinks from the right as time is used up
+    safezone.style.width = (100 - frac * 100) + '%';
+    // throb when the monster is closing in
+    chaseMonster.classList.toggle('close', frac >= 0.75);
+  }
+
+  function cross(){
+    if (animating || state.selected.size < 1) return;
+    animating = true;
+    goBtn.disabled = true;
+
+    const movers = [...state.selected];
+    const dest = state.lantern === 'left' ? 'right' : 'left';
+    const cost = Math.max(...movers.map(id => chars.find(c=>c.id===id).time));
+
+    // animate
+    movers.forEach(id => {
+      state.side[id] = dest;
+      els[id].classList.add('crossing');
+    });
+    state.lantern = dest;
+    state.selected.clear();
+    layout();
+
+    const names = movers.map(id => chars.find(c=>c.id===id).name).join(' & ');
+    flashChip(`${names} cross → +${cost} min`);
+
+    setTimeout(()=>{
+      state.total += cost;
+      updateTime();
+      movers.forEach(id => els[id].classList.remove('crossing'));
+
+      monster.classList.add('roar');
+      setTimeout(()=>monster.classList.remove('roar'), 500);
+
+      animating = false;
+
+      // 17분 초과 시 즉시 몬스터가 잡음 — 게임 중단
+      if (state.total > LIMIT) {
+        caught();
+        return;
+      }
+      checkEnd();
+      updateGo();
+      updateHint();
+    }, 850);
+  }
+
+  function updateHint(){
+    const left = chars.filter(c=>state.side[c.id]==='left').length;
+    if (left === 0) return;
+    if (state.total > LIMIT) {
+      hint.innerHTML = `You've used <b>${state.total} minutes</b> — over the limit. Reset and try a faster order!`;
+    } else {
+      hint.innerHTML = `Lantern is on the <b>${state.lantern} side</b>. ${state.total} min used, ${LIMIT-state.total} left.`;
+    }
+  }
+
+  function checkEnd(){
+    const allRight = chars.every(c => state.side[c.id] === 'right');
+    if (!allRight) return;
+    state.done = true;
+    win(); // if we reach here, total <= LIMIT (overrun handled earlier)
+  }
+
+  function win(){
+    bridge.classList.add('cut');
+    setTimeout(()=>{
+      card.className = 'card win';
+      const tries = attempts === 1 ? 'on your <b>1st</b> try' : `after <b>${attempts}</b> tries`;
+      card.innerHTML = `
+        <div class="emoji">🎉</div>
+        <h2>Everyone is safe!</h2>
+        <div class="attempt-badge">Solved ${tries}</div>
+        <p>You crossed in <b>${state.total} minutes</b> and cut the ropes.
+        The monster can't follow — the magic stone is yours!</p>
+        <div class="steps">
+          <div>✔ You + Archer cross → 2 min</div>
+          <div>✔ You return → 3 min</div>
+          <div>✔ Knight + Wizard cross → 13 min</div>
+          <div>✔ Archer returns → 15 min</div>
+          <div>✔ You + Archer cross → 17 min</div>
+        </div>
+        <button class="btn go" onclick="location.reload()">Play Again</button>`;
+      overlay.classList.add('show');
+    }, 600);
+  }
+
+  function caught(){
+    state.done = true;
+    goBtn.disabled = true;
+    // monster reaches the party on the bar
+    chaseMonster.style.left = '92%';
+    chaseMonster.classList.add('close');
+
+    // 1) full-screen monster takeover
+    caughtFlash.classList.add('show');
+    monster.classList.add('roar');
+
+    // 2) after a beat, show the try-again card
+    setTimeout(()=>{
+      caughtFlash.classList.remove('show');
+      card.className = 'card lose';
+      card.innerHTML = `
+        <div class="emoji">🐉💥</div>
+        <h2>The monster caught you!</h2>
+        <p>You used <b>${state.total} minutes</b>, but the limit is <b>17</b>.
+        Tip: send the two <b>slowest</b> together, and let a fast one carry the lantern back.</p>
+        <button class="btn go" style="background:linear-gradient(160deg,#ff8c3b,#e0642a)" onclick="restart()">Try Again</button>`;
+      overlay.classList.add('show');
+    }, 1600);
+  }
+
+  function newAttempt(){
+    attempts++;
+    attemptVal.textContent = attempts;
+    init();
+  }
+
+  window.restart = function(){ newAttempt(); };
+
+  goBtn.addEventListener('click', cross);
+  resetBtn.addEventListener('click', newAttempt);
+
+  init();
+})();
+</script>
+</body>
+</html>
